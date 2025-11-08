@@ -1,28 +1,48 @@
 // src/services/cartApi.js
-import axios from "axios";
+import { api } from "../lib/axios";
 
-const BASE_URL = "http://localhost:3000/cart";
-const PRODUCT_URL = "http://localhost:3000/products";
+// collection
+const CART_PATH = "/cart";
+const PRODUCTS_PATH = "/products";
+
 const getEffectivePrice = (p) => {
-  const base = Number(p.price || 0);
-  const sale = p.sale;
+  const base = Number(p?.price || 0);
+  const sale = p?.sale;
   if (sale && sale.active && Number(sale.percent) > 0) {
     return Math.round(base * (1 - Number(sale.percent) / 100));
   }
   return base;
 };
-export const getCart = async () => {
-  const res = await axios.get(BASE_URL);
-  return res.data;
+
+/**
+ * Lấy giỏ hàng theo userId
+ */
+export const getCart = async (userId) => {
+  if (!userId) return []; // chưa đăng nhập => giỏ rỗng ở client
+  const res = await api.get(CART_PATH, { params: { userId } });
+  return Array.isArray(res.data) ? res.data : [];
 };
-export const addToCartServer = async (product) => {
-  const found = await axios.get(`${BASE_URL}?id=${product.id}`);
-  const exists = found.data?.[0];
-  const pRes = await axios.get(`${PRODUCT_URL}/${product.id}`);
+
+/**
+ * Thêm vào giỏ theo userId
+ */
+export const addToCartServer = async (product, userId) => {
+  if (!userId) throw new Error("Bạn cần đăng nhập để thêm vào giỏ.");
+
+  // lấy stock mới nhất
+  const pRes = await api.get(`${PRODUCTS_PATH}/${product.id}`);
   const latest = pRes.data;
   const stock = Number(latest?.stock ?? 0);
   if (stock <= 0) throw new Error("Sản phẩm đã hết hàng!");
+
   const unitPrice = getEffectivePrice(latest);
+  const cartId = `${userId}-${latest.id}`;
+
+  // đã có trong giỏ?
+  const found = await api.get(CART_PATH, {
+    params: { id: cartId, userId },
+  });
+  const exists = found.data?.[0];
 
   if (exists) {
     if ((exists.quantity || 1) >= stock) {
@@ -30,13 +50,16 @@ export const addToCartServer = async (product) => {
         `Bạn đã thêm tối đa (${stock}) sản phẩm này trong giỏ hàng.`
       );
     }
-    const updated = await axios.patch(`${BASE_URL}/${exists.id}`, {
+    const updated = await api.patch(`${CART_PATH}/${cartId}`, {
       quantity: (exists.quantity || 1) + 1,
     });
     return updated.data;
   } else {
-    const added = await axios.post(BASE_URL, {
-      id: latest.id,
+    // Tạo item mới
+    const added = await api.post(CART_PATH, {
+      id: cartId, // cartId duy nhất
+      productId: latest.id, // giữ id sản phẩm riêng
+      userId,
       title: latest.title,
       price: unitPrice,
       originalPrice: latest.price,
@@ -46,16 +69,25 @@ export const addToCartServer = async (product) => {
     return added.data;
   }
 };
-export const updateCartItem = async (id, newQuantity) => {
-  const res = await axios.patch(`${BASE_URL}/${id}`, { quantity: newQuantity });
+
+export const updateCartItem = async (cartId, newQuantity) => {
+  const res = await api.patch(`${CART_PATH}/${cartId}`, {
+    quantity: newQuantity,
+  });
   return res.data;
 };
-export const deleteCartItem = async (id) => {
-  await axios.delete(`${BASE_URL}/${id}`);
+
+export const deleteCartItem = async (cartId) => {
+  await api.delete(`${CART_PATH}/${cartId}`);
 };
-export const clearCart = async () => {
-  const res = await axios.get(BASE_URL);
-  for (const item of res.data) {
-    await axios.delete(`${BASE_URL}/${item.id}`);
-  }
+
+/**
+ * Xóa tất cả item của user trên server (ít dùng).
+ * Yêu cầu đăng nhập để xác định userId.
+ */
+export const clearCartServerByUser = async (userId) => {
+  if (!userId) return;
+  const res = await api.get(CART_PATH, { params: { userId } });
+  const items = Array.isArray(res.data) ? res.data : [];
+  await Promise.all(items.map((it) => api.delete(`${CART_PATH}/${it.id}`)));
 };
