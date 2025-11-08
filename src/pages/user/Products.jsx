@@ -2,19 +2,22 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import axios from "axios";
 import { useDispatch } from "react-redux";
 import { ShoppingCart, RotateCcw } from "lucide-react";
-import Swal from "sweetalert2"; // ✅ Thêm SweetAlert2
+import Swal from "sweetalert2";
 
 import { setProducts } from "../../features/products/productsSlice";
 import { addToCartRedux } from "../../features/cart/cartSlice";
-import { getProductById } from "../../services/productsApi";
+
+// ✅ Dùng các service đã chuẩn (đang chạy OK ở Admin)
+import { getProductById, getProducts } from "../../services/productsApi";
 import { addToCartServer } from "../../services/cartApi";
+import { getCategories } from "../../services/categoryApi";
+import { getBrands } from "../../services/brandApi";
 
 const LIMIT = 12;
 
-// ✅ SweetAlert2 mixins — UI đẹp & không phá layout
+// ===== SweetAlert2 UI =====
 const modal = Swal.mixin({
   buttonsStyling: false,
   heightAuto: false,
@@ -62,33 +65,31 @@ const Products = () => {
   const [allProducts, setAllProducts] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
 
+  // ===== Lấy categories & brands qua service (như Admin) =====
   useEffect(() => {
     const fetchCatsAndBrands = async () => {
       try {
-        const resCats = await axios.get("http://localhost:3000/categories");
-        const resBrands = await axios.get("http://localhost:3000/brands");
-
-        const categoriesData = Array.isArray(resCats.data) ? resCats.data : [];
-        const brandsData = Array.isArray(resBrands.data) ? resBrands.data : [];
-
+        const [cats, brs] = await Promise.all([getCategories(), getBrands()]);
+        const categoriesData = Array.isArray(cats) ? cats.slice() : [];
+        const brandsData = Array.isArray(brs) ? brs.slice() : [];
         categoriesData.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
         brandsData.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
-
         setCategories(categoriesData);
         setBrands(brandsData);
       } catch (err) {
-        console.error("Không tải được categories hoặc brands:", err);
+        console.error("Không tải được categories/brands:", err);
       }
     };
-
     fetchCatsAndBrands();
   }, []);
 
+  // ===== Đồng bộ page từ URL =====
   useEffect(() => {
     const urlPage = parseInt(searchParams.get("page") || "1", 10);
     if (urlPage !== page) setPage(urlPage);
   }, [searchParams]);
 
+  // ===== Đồng bộ URL theo filter/sort/page =====
   useEffect(() => {
     const params = {};
     if (page > 1) params.page = page;
@@ -98,47 +99,55 @@ const Products = () => {
     setSearchParams(params);
   }, [page, category, brand, sort, setSearchParams]);
 
+  // ===== Lấy tất cả sản phẩm qua service và lọc/sort client =====
   useEffect(() => {
-    const controller = new AbortController();
+    let cancelled = false;
 
     const fetchAll = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("http://localhost:3000/products", {
-          signal: controller.signal,
-          params: {
-            ...(category ? { categoryId: category } : {}),
-            ...(brand ? { brandId: brand } : {}),
-          },
-        });
+        const list = await getProducts(); // ✅ service đang dùng instance api (ENV)
+        const raw = Array.isArray(list) ? list : [];
 
-        const raw = Array.isArray(res.data) ? res.data : [];
-        let sorted = [...raw];
+        // Lọc theo category/brand nếu có
+        let filtered = raw;
+        if (category)
+          filtered = filtered.filter(
+            (p) => String(p.categoryId) === String(category)
+          );
+        if (brand)
+          filtered = filtered.filter(
+            (p) => String(p.brandId) === String(brand)
+          );
 
+        // Sắp xếp
         if (sort === "price-asc") {
-          sorted.sort((a, b) => Number(a.price) - Number(b.price));
+          filtered.sort((a, b) => Number(a.price) - Number(b.price));
         } else if (sort === "price-desc") {
-          sorted.sort((a, b) => Number(b.price) - Number(a.price));
+          filtered.sort((a, b) => Number(b.price) - Number(a.price));
         } else {
-          sorted.sort((a, b) => Number(a.id) - Number(b.id));
+          filtered.sort((a, b) => Number(a.id) - Number(b.id));
         }
 
-        setAllProducts(sorted);
-        setTotalProducts(sorted.length);
-        setPage(1);
-      } catch (err) {
-        if (err.name !== "CanceledError") {
-          console.error("Lỗi tải sản phẩm:", err);
+        if (!cancelled) {
+          setAllProducts(filtered);
+          setTotalProducts(filtered.length);
+          setPage(1);
         }
+      } catch (err) {
+        if (!cancelled) console.error("Lỗi tải sản phẩm:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchAll();
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+    };
   }, [category, brand, sort]);
 
+  // ===== Cắt trang & push vào Redux (giữ hành vi cũ) =====
   useEffect(() => {
     const start = (page - 1) * LIMIT;
     const current = allProducts.slice(start, start + LIMIT);
@@ -158,7 +167,7 @@ const Products = () => {
     setSearchParams({});
   };
 
-  // ====== Thêm alert đẹp: hết hàng, lỗi, thành công ======
+  // ===== Toast/Modal =====
   const showOutOfStock = () =>
     modal.fire({
       icon: "warning",
@@ -189,11 +198,8 @@ const Products = () => {
         showOutOfStock();
         return;
       }
-
-      await addToCartServer(latest); // dùng dữ liệu mới nhất
-      // Nếu bạn muốn đồng bộ giỏ từ server về redux thì có thể thay bằng setCartRedux như trang chi tiết
+      await addToCartServer(latest);
       dispatch(addToCartRedux(latest));
-
       showAddSuccess();
     } catch (err) {
       const serverMsg =
