@@ -466,16 +466,7 @@
       "name": "Hoàng Phương"
     }
   ],
-  "cart": [
-    {
-      "id": "2",
-      "title": "Clean Architecture",
-      "price": 340000,
-      "originalPrice": 340000,
-      "image": "https://covers.openlibrary.org/b/isbn/0134494164-L.jpg",
-      "quantity": 8
-    }
-  ],
+  "cart": [],
   "orders": [
     {
       "id": "1762603209076",
