@@ -1,10 +1,10 @@
 // src/services/orderApi.js
-import axios from "axios";
+import { api } from "../lib/axios"; // dùng axios instance đã cấu hình ENV
 
-const BASE_URL = "http://localhost:3000";
-const ORDERS_URL = `${BASE_URL}/orders`;
-const CART_URL = `${BASE_URL}/cart`;
-const PRODUCTS_URL = `${BASE_URL}/products`;
+// Dùng path thay vì hard-code BASE_URL
+const ORDERS_PATH = "/orders";
+const CART_PATH = "/cart";
+const PRODUCTS_PATH = "/products";
 
 const CLIENT_TO_SERVER_STATUS = {
   pending: "Đang xử lý",
@@ -41,7 +41,7 @@ const toServerStatus = (raw) => {
 };
 
 export const getOrders = async () => {
-  const res = await axios.get(ORDERS_URL);
+  const res = await api.get(ORDERS_PATH);
   const data = Array.isArray(res.data) ? res.data : [];
   return data
     .map((o) => ({
@@ -63,7 +63,7 @@ export const createOrderAndUpdateStock = async (orderData) => {
   const paymentStatus =
     orderData.paymentStatus || (paymentMethod === "cod" ? "unpaid" : "pending");
 
-  const createdRes = await axios.post(ORDERS_URL, {
+  const createdRes = await api.post(ORDERS_PATH, {
     ...orderData,
     id: fixedId,
     createdAt: orderData.createdAt || new Date().toISOString(),
@@ -74,16 +74,17 @@ export const createOrderAndUpdateStock = async (orderData) => {
 
   const createdOrder = createdRes.data;
 
+  // Giảm tồn kho theo items (nếu có)
   if (Array.isArray(orderData.items)) {
     for (const item of orderData.items) {
       try {
-        const prodRes = await axios.get(`${PRODUCTS_URL}/${item.id}`);
+        const prodRes = await api.get(`${PRODUCTS_PATH}/${item.id}`);
         const product = prodRes.data;
         if (!product || product.id == null) continue;
         const currentStock = Number(product.stock ?? 0);
         const qty = Number(item.quantity || 0);
         const newStock = Math.max(0, currentStock - qty);
-        await axios.patch(`${PRODUCTS_URL}/${item.id}`, { stock: newStock });
+        await api.patch(`${PRODUCTS_PATH}/${item.id}`, { stock: newStock });
       } catch (err) {
         console.error("Giảm tồn kho thất bại cho id:", item.id, err);
       }
@@ -97,10 +98,10 @@ export const createOrderAndUpdateStock = async (orderData) => {
 };
 
 export const clearCart = async () => {
-  const res = await axios.get(CART_URL);
+  const res = await api.get(CART_PATH);
   const items = Array.isArray(res.data) ? res.data : [];
   if (!items.length) return;
-  await Promise.all(items.map((it) => axios.delete(`${CART_URL}/${it.id}`)));
+  await Promise.all(items.map((it) => api.delete(`${CART_PATH}/${it.id}`)));
 };
 
 export const updateOrder = async (id, payload = {}) => {
@@ -111,7 +112,7 @@ export const updateOrder = async (id, payload = {}) => {
   };
 
   const patchById = async (realId) => {
-    const res = await axios.patch(`${ORDERS_URL}/${realId}`, payloadForServer);
+    const res = await api.patch(`${ORDERS_PATH}/${realId}`, payloadForServer);
     const serverData = res.data;
     return { ...serverData, status: toClientStatus(serverData.status) };
   };
@@ -124,9 +125,9 @@ export const updateOrder = async (id, payload = {}) => {
       err?.message
     );
     try {
-      const oldRes = await axios.get(`${ORDERS_URL}/${normIdStr}`);
+      const oldRes = await api.get(`${ORDERS_PATH}/${normIdStr}`);
       const merged = { ...oldRes.data, ...payloadForServer };
-      const putRes = await axios.put(`${ORDERS_URL}/${normIdStr}`, merged);
+      const putRes = await api.put(`${ORDERS_PATH}/${normIdStr}`, merged);
       const serverData = putRes.data;
       return { ...serverData, status: toClientStatus(serverData.status) };
     } catch (err2) {
@@ -137,8 +138,8 @@ export const updateOrder = async (id, payload = {}) => {
       try {
         const numId = Number(id);
         if (!Number.isNaN(numId)) {
-          const res = await axios.patch(
-            `${ORDERS_URL}/${numId}`,
+          const res = await api.patch(
+            `${ORDERS_PATH}/${numId}`,
             payloadForServer
           );
           const serverData = res.data;
@@ -178,7 +179,7 @@ export const getOrdersByKeyword = async (keyword = "", status = "") => {
 
 export const attachOrdersToUserByEmail = async (email, userId, userName) => {
   if (!email || !userId) return;
-  const res = await axios.get(ORDERS_URL);
+  const res = await api.get(ORDERS_PATH);
   const all = Array.isArray(res.data) ? res.data : [];
   const lower = email.trim().toLowerCase();
 
@@ -195,7 +196,7 @@ export const attachOrdersToUserByEmail = async (email, userId, userName) => {
 
   await Promise.all(
     target.map((o) =>
-      axios.patch(`${ORDERS_URL}/${o.id}`, {
+      api.patch(`${ORDERS_PATH}/${o.id}`, {
         customerId: userId,
         customerName: o.customerName || userName || "Người dùng",
       })
