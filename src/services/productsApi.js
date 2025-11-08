@@ -1,5 +1,5 @@
 // src/services/productsApi.js
-import { api } from "../lib/axios"; // chú ý đường dẫn: services -> lib (../)
+import { api } from "../lib/axios"; // dùng instance đã cấu hình ENV
 
 const BASE_PATH = "/products";
 
@@ -41,11 +41,10 @@ export const createProductAutoId = async (payload) => {
     stock: Number(payload.stock) || 0,
     image: payload.image || "",
     description: payload.description || "",
-    categoryId: payload.categoryId || "",
-    brandId: payload.brandId || "", // giữ đúng key bạn đang dùng
+    categoryId: payload.categoryId || "", // giữ key đang dùng
+    brandId: payload.brandId || "", // giữ key đang dùng
     sale: payload.sale ?? null,
   };
-
   const res = await api.post(BASE_PATH, body);
   return res.data;
 };
