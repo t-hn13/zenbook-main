@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "json-server --port $PORT --host 0.0.0.0 db.json"
+    "start": "json-server db.json --host 0.0.0.0 --port $PORT --static ./"
   },
   "dependencies": {
     "json-server": "^1.0.0-beta.3",
