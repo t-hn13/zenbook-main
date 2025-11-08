@@ -466,7 +466,16 @@
       "name": "Hoàng Phương"
     }
   ],
-  "cart": [],
+  "cart": [
+    {
+      "id": "3",
+      "title": "Refactoring",
+      "price": 369000,
+      "originalPrice": 410000,
+      "image": "https://covers.openlibrary.org/b/isbn/0201485672-L.jpg",
+      "quantity": 7
+    }
+  ],
   "orders": [
     {
       "id": "1762603209076",
