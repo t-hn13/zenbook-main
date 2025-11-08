@@ -1,23 +1,23 @@
 // src/services/brandApi.js
-import axios from "axios";
+import { api } from "../lib/axios";
 
-const BASE_URL = "http://localhost:3000/brands";
+const BASE_PATH = "/brands";
 
 export const getBrands = async () => {
-  const res = await axios.get(BASE_URL);
+  const res = await api.get(BASE_PATH);
   return res.data;
 };
 
 export const createBrand = async (name) => {
-  const res = await axios.post(BASE_URL, { name });
+  const res = await api.post(BASE_PATH, { name });
   return res.data;
 };
 
 export const updateBrand = async (id, name) => {
-  const res = await axios.patch(`${BASE_URL}/${id}`, { name });
+  const res = await api.patch(`${BASE_PATH}/${id}`, { name });
   return res.data;
 };
 
 export const deleteBrand = async (id) => {
-  await axios.delete(`${BASE_URL}/${id}`);
+  await api.delete(`${BASE_PATH}/${id}`);
 };
