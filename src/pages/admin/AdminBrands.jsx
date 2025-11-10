@@ -5,8 +5,10 @@ import {
   updateBrand,
   deleteBrand,
 } from "../../services/brandApi";
-import axios from "axios";
+import Swal from "sweetalert2"; // Thêm SweetAlert2
+
 const PAGE_LIMIT = 10;
+
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +19,7 @@ const AdminBrands = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [currentBrands, setCurrentBrands] = useState([]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -29,19 +32,29 @@ const AdminBrands = () => {
       setCurrentBrands(current);
     } catch (err) {
       console.error("Không lấy được danh sách tác giả:", err);
-      alert("Không lấy được danh sách tác giả.");
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi!",
+        text: "Không lấy được danh sách tác giả.",
+      });
     } finally {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchData();
   }, [page]);
+
   const handleAdd = async (e) => {
     e.preventDefault();
     const name = newName.trim();
     if (!name) {
-      alert("Nhập tên tác giả đã!");
+      Swal.fire({
+        icon: "warning",
+        title: "Cảnh báo!",
+        text: "Nhập tên tác giả đã!",
+      });
       return;
     }
     try {
@@ -51,16 +64,25 @@ const AdminBrands = () => {
       setNewName("");
     } catch (err) {
       console.error("Thêm tác giả lỗi:", err);
-      alert("Thêm tác giả thất bại.");
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi!",
+        text: "Thêm tác giả thất bại.",
+      });
     } finally {
       setAdding(false);
     }
   };
+
   const handleEdit = async (e) => {
     e.preventDefault();
     const name = newName.trim();
     if (!name) {
-      alert("Nhập tên tác giả đã!");
+      Swal.fire({
+        icon: "warning",
+        title: "Cảnh báo!",
+        text: "Nhập tên tác giả đã!",
+      });
       return;
     }
     try {
@@ -73,28 +95,44 @@ const AdminBrands = () => {
       setNewName("");
     } catch (err) {
       console.error("Cập nhật tác giả lỗi:", err);
-      alert("Cập nhật tác giả thất bại.");
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi!",
+        text: "Cập nhật tác giả thất bại.",
+      });
     } finally {
       setAdding(false);
     }
   };
+
   const handleDelete = async (brand) => {
     if (!window.confirm(`Xoá tác giả "${brand.name}" ?`)) return;
     try {
       setDeletingId(brand.id);
       await deleteBrand(brand.id);
       setBrands((prev) => prev.filter((b) => b.id !== brand.id));
+      Swal.fire({
+        icon: "success",
+        title: "Thành công!",
+        text: `Đã xoá tác giả "${brand.name}" thành công.`,
+      });
     } catch (err) {
       console.error("Xoá tác giả lỗi:", err);
-      alert("Xoá tác giả thất bại.");
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi!",
+        text: "Xoá tác giả thất bại.",
+      });
     } finally {
       setDeletingId(null);
     }
   };
+
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > totalPages) return;
     setPage(newPage);
   };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
