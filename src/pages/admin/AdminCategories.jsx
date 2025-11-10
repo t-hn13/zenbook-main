@@ -4,6 +4,7 @@ import {
   createCategory,
   deleteCategory,
 } from "../../services/categoryApi";
+import Swal from "sweetalert2"; // Thêm SweetAlert2
 
 const PAGE_LIMIT = 10; // Hiển thị 10 danh mục mỗi trang
 
@@ -38,7 +39,11 @@ const AdminCategories = () => {
       setCurrentCategories(current);
     } catch (err) {
       console.error("Không lấy được danh mục:", err);
-      alert("Không lấy được danh mục. Kiểm tra json-server nhé.");
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi!",
+        text: "Không lấy được danh mục. Kiểm tra json-server nhé.",
+      });
     } finally {
       setLoading(false);
     }
@@ -52,7 +57,11 @@ const AdminCategories = () => {
     e.preventDefault();
     const name = newName.trim();
     if (!name) {
-      alert("Nhập tên danh mục đã!");
+      Swal.fire({
+        icon: "warning",
+        title: "Cảnh báo!",
+        text: "Nhập tên danh mục đã!",
+      });
       return;
     }
 
@@ -65,7 +74,11 @@ const AdminCategories = () => {
       setNewName("");
     } catch (err) {
       console.error("Thêm danh mục lỗi:", err);
-      alert("Thêm danh mục thất bại");
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi!",
+        text: "Thêm danh mục thất bại",
+      });
     } finally {
       setAdding(false);
     }
@@ -81,9 +94,18 @@ const AdminCategories = () => {
           .filter((c) => c.id !== cat.id)
           .sort((a, b) => Number(a.id || 0) - Number(b.id || 0))
       );
+      Swal.fire({
+        icon: "success",
+        title: "Thành công!",
+        text: `Đã xoá danh mục "${cat.name}" thành công.`,
+      });
     } catch (err) {
       console.error("Xoá danh mục lỗi:", err);
-      alert("Xoá thất bại (có thể danh mục đang được sản phẩm dùng)");
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi!",
+        text: "Xoá thất bại (có thể danh mục đang được sản phẩm dùng)",
+      });
     } finally {
       setDeletingId(null);
     }
@@ -171,6 +193,7 @@ const AdminCategories = () => {
         </table>
       </div>
 
+      {/* Phân trang */}
       {!loading && totalPages > 1 && (
         <>
           <div className="flex justify-center mt-4 flex-wrap gap-2">
